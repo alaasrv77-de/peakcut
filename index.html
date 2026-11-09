@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Peakcut</title>
+<meta name="theme-color" content="#15171D">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='112' fill='%2315171D'/%3E%3Cpath d='M64 360 C120 360 140 330 170 318 S220 330 248 250 S292 96 318 170 S352 300 384 312 S430 330 448 330 L448 420 L64 420 Z' fill='%23F2A10F'/%3E%3Crect x='226' y='88' width='104' height='332' rx='10' fill='none' stroke='%23fff' stroke-width='16'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=Unbounded:wght@800&display=swap">
+<style>
+/* Layout: one column — new clip form, live progress, then the analytics dashboard and clips; history at the end */
+:root{
+  --bg:#EEF0F4; --surface:#FFFFFF; --fg:#15171D; --muted:#5D6272; --line:#D8DCE4;
+  --heat:#F2A10F; --heat-ink:#9A5B00; --ink:#15171D; --on-ink:#FFFFFF; --sel:#2A62F4;
+  --replay:#2A62F4; --cmt:#1E8A4C; --aud:#8A8FA0; --vis:#B455C9; --bad:#B42318;
+  --display:"Unbounded",system-ui,sans-serif;
+  --body:"IBM Plex Sans Arabic",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0F1116; --surface:#181B22; --fg:#E9EBF0; --muted:#9298A8; --line:#2A2E39;
+  --heat:#F5AE2A; --heat-ink:#F5C567; --ink:#F1F2F5; --on-ink:#111318; --sel:#6E95FF;
+  --replay:#6E95FF; --cmt:#4FCB82; --aud:#7D8396; --vis:#D58BE6; --bad:#FF8A80; color-scheme:dark}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 var(--body);
+  padding:max(16px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(40px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+.wrap{max-width:820px;margin:0 auto;display:grid;gap:16px}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+h1{font:800 24px var(--display);letter-spacing:-.02em;margin:0}
+h1 span{color:var(--heat-ink)}
+h2{font-size:17px;margin:0;overflow-wrap:anywhere}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;gap:14px;min-width:0}
+.label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.hint{font-size:13px;color:var(--muted)}
+input[type=url],input[type=text],input[type=password],textarea{width:100%;min-width:0;font:16px var(--body);color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:11px 12px}
+textarea{font-size:14px;resize:vertical}
+input:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(--sel);outline-offset:2px}
+.btn{font:600 15px var(--body);border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:10px;padding:10px 14px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn.primary{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
+.btn.big{width:100%;padding:14px;font-size:16px}
+.btn.small{padding:6px 10px;font-size:13px}
+.btn:disabled{opacity:.45}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.group{display:grid;gap:6px;min-width:0}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:500 14px var(--body);border:1px solid var(--line);background:transparent;color:var(--fg);border-radius:999px;padding:7px 13px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
+details summary{cursor:pointer}
+ol.steps{margin:0;padding-left:20px;display:grid;gap:6px}
+code{font:13px var(--mono);background:var(--bg);padding:1px 6px;border-radius:5px}
+.err{color:var(--bad);font-weight:500}
+.ok{color:var(--cmt);font-weight:600}
+/* progress */
+.prog{display:grid;gap:8px}
+.pstep{display:flex;gap:10px;align-items:center;font-size:14px}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--line);flex:none}
+.pstep.run .dot{background:var(--heat);animation:pulse 1.2s ease-in-out infinite}
+.pstep.done .dot{background:var(--cmt)}
+.pstep.fail .dot{background:var(--bad)}
+@keyframes pulse{50%{opacity:.25}}
+/* dashboard */
+.based{font-size:14px;border-left:3px solid var(--heat);padding-left:10px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
+.tile{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:grid;gap:2px}
+.tile b{font:600 20px var(--mono);font-variant-numeric:tabular-nums}
+.chartwrap{position:relative}
+#chart{width:100%;height:240px;display:block;touch-action:pan-y}
+.legend{display:flex;flex-wrap:wrap;gap:6px}
+.lg{display:inline-flex;align-items:center;gap:6px;font-size:13px;border:1px solid var(--line);border-radius:999px;padding:4px 10px;background:transparent;color:var(--fg);cursor:pointer}
+.lg i{width:12px;height:3px;border-radius:2px;display:inline-block}
+.lg[aria-pressed="false"]{opacity:.4}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--on-ink);font:12px/1.4 var(--mono);padding:6px 8px;border-radius:6px;white-space:nowrap;transform:translate(-50%,-110%)}
+.clip{display:grid;gap:8px;border-top:1px solid var(--line);padding-top:12px}
+.clip video{width:100%;max-height:70vh;border-radius:10px;background:#000}
+.cliphead{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.rank{font:800 18px var(--display);color:var(--heat-ink)}
+.tc{font:13px var(--mono);font-variant-numeric:tabular-nums}
+.hist{display:grid}
+.hist button{all:unset;cursor:pointer;display:grid;grid-template-columns:1fr auto;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px}
+.hist button:focus-visible{outline:2px solid var(--sel)}
+.hist .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+@media (max-width:520px){.grid2{grid-template-columns:1fr}#chart{height:200px}}
+@media (prefers-reduced-motion:reduce){.pstep.run .dot{animation:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Peak<span>cut</span></h1>
+    <div class="row">
+      <a class="btn small" href="upload.html">Upload a file</a>
+      <button class="btn small" id="setBtn">Settings</button>
+    </div>
+  </header>
+
+  <!-- one-time setup -->
+  <section class="panel" id="setup" hidden>
+    <h2>Connect your GitHub clipper</h2>
+    <p class="hint" style="margin:0">Peakcut runs the clipping on GitHub's free servers in your private repository. It needs an access key that only allows running that clipper and reading its results. The key stays in this browser.</p>
+    <ol class="steps">
+      <li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub → New fine-grained token</a>.</li>
+      <li>Token name: <code>Peakcut</code>. Expiration: 1 year.</li>
+      <li>Repository access: <b>Only select repositories</b> → <code>peakcut-clips</code>.</li>
+      <li>Permissions → Repository: <b>Actions: Read and write</b>, <b>Contents: Read-only</b>.</li>
+      <li>Click <b>Generate token</b>, copy it, and paste it below.</li>
+    </ol>
+    <div class="grid2">
+      <div class="group"><label class="label" for="repo">Clipper repository</label><input type="text" id="repo" autocomplete="off" spellcheck="false"></div>
+      <div class="group"><label class="label" for="key">Access key</label><input type="password" id="key" autocomplete="off" placeholder="github_pat_…"></div>
+    </div>
+    <div class="row"><button class="btn primary" id="saveKey">Connect</button><button class="btn" id="forget" hidden>Remove key from this browser</button></div>
+    <p class="hint" id="setMsg" role="status"></p>
+  </section>
+
+  <!-- new clip -->
+  <section class="panel" id="form" hidden>
+    <div class="group">
+      <label class="label" for="link">Video link</label>
+      <input type="url" id="link" inputmode="url" placeholder="TikTok, YouTube, Instagram, X, Facebook…" autocomplete="off">
+    </div>
+    <div class="grid2">
+      <div class="group">
+        <label class="label" for="peak">Most-watched time (optional)</label>
+        <input type="text" id="peak" inputmode="text" placeholder="1:24 from your Insights / Analytics" autocomplete="off">
+      </div>
+      <div class="group"><span class="label">Clip length</span>
+        <div class="chips" data-opt="length"><button class="chip" data-v="15">15 s</button><button class="chip" data-v="30">30 s</button><button class="chip" data-v="45">45 s</button><button class="chip" data-v="60">60 s</button></div></div>
+    </div>
+    <div class="group"><span class="label">Format</span>
+      <div class="chips" data-opt="format"><button class="chip" data-v="vertical-blur">9:16 blur fill</button><button class="chip" data-v="vertical-crop">9:16 crop</button><button class="chip" data-v="square">1:1</button><button class="chip" data-v="original">Original</button></div></div>
+    <div class="grid2">
+      <div class="group"><span class="label">Clips</span>
+        <div class="chips" data-opt="clips"><button class="chip" data-v="1">1</button><button class="chip" data-v="3">3</button><button class="chip" data-v="5">5</button></div></div>
+      <div class="group"><span class="label">Captions</span>
+        <div class="chips" data-opt="captions"><button class="chip" data-v="false">Off</button><button class="chip" data-v="true">On</button></div></div>
+    </div>
+    <details>
+      <summary class="label">Comments (optional)</summary>
+      <div class="group" style="margin-top:8px">
+        <label class="hint" for="cmts">YouTube comments are read automatically. For TikTok or Instagram, paste comments here; timestamps like 1:24 or ١:٢٤ count as votes.</label>
+        <textarea id="cmts" rows="4"></textarea>
+      </div>
+    </details>
+    <button class="btn primary big" id="go">Find the viral moment</button>
+    <p class="hint" id="formMsg" role="status"></p>
+  </section>
+
+  <!-- live progress -->
+  <section class="panel" id="progress" hidden>
+    <div class="row" style="justify-content:space-between;align-items:baseline"><span class="label">Working on GitHub</span><span class="tc hint" id="elapsed"></span></div>
+    <div class="hint" id="progLink" style="overflow-wrap:anywhere"></div>
+    <div class="prog" id="prog"></div>
+    <p class="hint" style="margin:0">Usually 1–3 minutes. You can close this page; the result will be under History.</p>
+  </section>
+
+  <!-- results -->
+  <section class="panel" id="result" hidden></section>
+
+  <section class="panel" id="histPanel" hidden>
+    <div class="row" style="justify-content:space-between;align-items:center"><span class="label">History</span><button class="btn small" id="refresh">Refresh</button></div>
+    <div class="hist" id="hist"></div>
+  </section>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v===null?d:v;}catch(e){return d;}},
+             set(k,v){try{localStorage.setItem(k,v);}catch(e){}}, del(k){try{localStorage.removeItem(k);}catch(e){}}};
+const CFG={repo:store.get("pc-repo","alaasrv77-de/peakcut-clips"), key:store.get("pc-key","")};
+const OPT={length:"30",format:"vertical-blur",clips:"1",captions:"false"};
+try{Object.assign(OPT,JSON.parse(store.get("pc-opt","{}")));}catch(e){}
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const tc=s=>{s=Math.max(0,+s||0);const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=Math.floor(s%60);return (h?h+":"+String(m).padStart(2,"0"):m)+":"+String(x).padStart(2,"0");};
+const num=n=>n==null?"–":n>=1e6?(n/1e6).toFixed(n>=1e7?0:1)+"M":n>=1e3?(n/1e3).toFixed(n>=1e4?0:1)+"K":String(n);
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+/* ---------------- GitHub API ---------------- */
+async function gh(path,opt={}){
+  const r=await fetch("https://api.github.com"+path,{...opt,headers:{"Authorization":"Bearer "+CFG.key,"Accept":opt.accept||"application/vnd.github+json","X-GitHub-Api-Version":"2022-11-28",...(opt.body?{"Content-Type":"application/json"}:{})}});
+  if(r.status===401) throw new Error("GitHub rejected the access key. Open Settings and paste a new one.");
+  if(r.status===403) throw new Error("The access key doesn't have permission for this. It needs Actions: Read and write, Contents: Read-only.");
+  if(r.status===404 && opt.need) throw new Error("Couldn't find "+CFG.repo+". Check the repository name in Settings, and that the key includes it.");
+  return r;
+}
+const repoPath=p=>"/repos/"+CFG.repo+p;
+
+/* ---------------- setup ---------------- */
+function showSetup(force){ const need=!CFG.key; $("setup").hidden=!(need||force); $("form").hidden=need;
+  $("repo").value=CFG.repo; $("key").value=""; $("forget").hidden=!CFG.key; $("setMsg").textContent=CFG.key?"Connected. Paste a new key only to replace it.":""; }
+$("setBtn").onclick=()=>{ const open=$("setup").hidden; showSetup(open); if(!open && CFG.key) $("setup").hidden=true; };
+$("saveKey").onclick=async()=>{
+  const repo=$("repo").value.trim().replace(/^https?:\/\/github\.com\//,"").replace(/\/$/,""), key=$("key").value.trim()||CFG.key, msg=$("setMsg");
+  if(!/^[\w.-]+\/[\w.-]+$/.test(repo)){ msg.textContent="Repository should look like yourname/peakcut-clips."; return; }
+  if(!key){ msg.textContent="Paste the access key first."; return; }
+  const old={...CFG}; CFG.repo=repo; CFG.key=key; msg.textContent="Checking…";
+  try{ const r=await gh(repoPath("/actions/workflows/clip.yml"),{need:true});
+    if(!r.ok) throw new Error("The repository is there, but its Clip a video workflow wasn't found.");
+    store.set("pc-repo",repo); store.set("pc-key",key); msg.innerHTML='<span class="ok">Connected.</span>';
+    setTimeout(()=>{ $("setup").hidden=true; $("form").hidden=false; loadHist(); },600);
+  }catch(e){ Object.assign(CFG,old); msg.innerHTML='<span class="err">'+esc(e.message)+'</span>'; }
+};
+$("forget").onclick=()=>{ store.del("pc-key"); CFG.key=""; showSetup(true); $("histPanel").hidden=true; $("result").hidden=true; };
+
+/* ---------------- form ---------------- */
+function paint(){ document.querySelectorAll("[data-opt]").forEach(g=>g.querySelectorAll(".chip").forEach(c=>c.setAttribute("aria-pressed",String(c.dataset.v===OPT[g.dataset.opt])))); }
+document.querySelectorAll("[data-opt]").forEach(g=>g.addEventListener("click",e=>{ const b=e.target.closest(".chip"); if(!b) return;
+  OPT[g.dataset.opt]=b.dataset.v; paint(); store.set("pc-opt",JSON.stringify(OPT)); }));
+paint();
+const pre=new URLSearchParams(location.search).get("link")||new URLSearchParams(location.search).get("text"); if(pre){ const m=pre.match(/https?:\/\/\S+/); if(m) $("link").value=m[0]; }
+
+$("go").onclick=async()=>{
+  const link=($("link").value.match(/https?:\/\/\S+/)||[""])[0], msg=$("formMsg");
+  if(!link){ msg.textContent="Paste the full video link, starting with https://"; return; }
+  const peak=$("peak").value.trim();
+  if(peak && !/^[\d٠-٩۰-۹]{1,2}(:[\d٠-٩۰-۹]{1,2}){1,2}$|^[\d٠-٩۰-۹]+$/.test(peak)){ msg.textContent="Most-watched time should look like 1:24."; return; }
+  const rid="pk"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  $("go").disabled=true; msg.textContent="Starting…";
+  try{
+    const r=await gh(repoPath("/actions/workflows/clip.yml/dispatches"),{method:"POST",need:true,body:JSON.stringify({ref:"main",inputs:{
+      link, peak_time:peak, length:OPT.length, format:OPT.format, clips:OPT.clips, captions:OPT.captions,
+      comments:$("cmts").value.split(/\n+/).map(s=>s.trim()).filter(Boolean).join("|").slice(0,9000), request_id:rid}})});
+    if(r.status!==204){ const j=await r.json().catch(()=>({})); throw new Error(j.message||("GitHub said "+r.status)); }
+    msg.textContent=""; $("link").value=""; $("peak").value=""; $("cmts").value="";
+    track({rid,link});
+  }catch(e){ msg.innerHTML='<span class="err">'+esc(e.message)+'</span>'; }
+  finally{ $("go").disabled=false; }
+};
+
+/* ---------------- progress ---------------- */
+let timer=null, t0=0;
+const STEPS=[["Install tools","Getting the tools ready"],["Find the viral moment and cut the clip","Downloading and finding the moment"],["Save results for the Peakcut website","Saving clip and analytics"]];
+function renderProg(steps,phase){
+  $("prog").innerHTML=STEPS.map(([name,label],i)=>{ const s=steps&&steps.find(x=>x.name===name);
+    let cls=""; if(s){ if(s.status==="completed") cls=s.conclusion==="success"?"done":(s.conclusion==="skipped"?"":"fail"); else if(s.status==="in_progress") cls="run"; }
+    else if(!steps && i===0 && phase==="queued") cls="run";
+    return `<div class="pstep ${cls}"><span class="dot"></span>${esc(label)}</div>`; }).join("");
+}
+async function track({rid,link,runId}){
+  clearInterval(timer); $("result").hidden=true; $("progress").hidden=false; $("progLink").textContent=link||"";
+  t0=Date.now(); renderProg(null,"queued");
+  const tick=()=>{ $("elapsed").textContent=tc((Date.now()-t0)/1000); }; tick(); timer=setInterval(tick,1000);
+  try{
+    for(let i=0;!runId && i<30;i++){ await sleep(3000);
+      const r=await gh(repoPath("/actions/workflows/clip.yml/runs?event=workflow_dispatch&per_page=10")); const j=await r.json();
+      const run=(j.workflow_runs||[]).find(x=>(x.display_title||"").includes(rid)); if(run){ runId=run.id; t0=new Date(run.created_at).getTime(); } }
+    if(!runId) throw new Error("GitHub didn't start the run. Open Actions in the repository to check.");
+    for(;;){
+      const [rr,jr]=await Promise.all([gh(repoPath("/actions/runs/"+runId)),gh(repoPath("/actions/runs/"+runId+"/jobs"))]);
+      const run=await rr.json(), jobs=await jr.json(); renderProg(jobs.jobs?.[0]?.steps,run.status);
+      if(run.status==="completed"){ clearInterval(timer); $("progress").hidden=true; await showResult(runId); loadHist(); return; }
+      await sleep(4000);
+    }
+  }catch(e){ clearInterval(timer); $("prog").insertAdjacentHTML("beforeend",'<p class="err">'+esc(e.message)+'</p>'); }
+}
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
+/* ---------------- results ---------------- */
+async function raw(path,as="json"){
+  const r=await gh(repoPath("/contents/"+path+"?ref=results"),{accept:"application/vnd.github.raw+json"});
+  if(!r.ok) return null; return as==="blob"? r.blob() : r.json();
+}
+const urls=[];
+async function showResult(runId){
+  const box=$("result"); box.hidden=false; box.innerHTML='<p class="hint">Loading the result…</p>';
+  urls.splice(0).forEach(u=>URL.revokeObjectURL(u));
+  let st=null; for(let i=0;i<5 && !st;i++){ st=await raw(`runs/${runId}/status.json`).catch(()=>null); if(!st) await sleep(2500); }
+  if(!st){ box.innerHTML='<p class="err">No saved result for this run. It may have failed before saving; open it on GitHub to see why.</p>'+ghLink(runId); return; }
+  if(!st.ok){ box.innerHTML=`<h2>${esc(st.link)}</h2><p class="err">${esc(st.message)}</p>`+ghLink(runId); return; }
+  const a=await raw(`runs/${runId}/analytics.json`);
+  box.innerHTML=dashboard(a,st,runId);
+  bindChart(a);
+  const list=box.querySelector("#clips");
+  for(const m of a.moments){
+    const el=document.createElement("div"); el.className="clip";
+    el.innerHTML=`<div class="cliphead"><span class="rank">#${m.rank}</span><span class="tc">${tc(m.start)} → ${tc(m.end)} · ${Math.round(m.end-m.start)} s</span></div><p class="hint" style="margin:0">Loading video…</p>`;
+    list.appendChild(el);
+    raw(`runs/${runId}/clip-${m.rank}.mp4`,"blob").then(b=>{
+      if(!b){ el.querySelector("p").textContent="Couldn't load this clip."; return; }
+      const f=new File([b],safeName(a.title)+` - peak ${m.rank}.mp4`,{type:"video/mp4"}), u=URL.createObjectURL(f); urls.push(u);
+      el.querySelector("p").outerHTML=`<video src="${u}" controls playsinline preload="metadata"></video>
+        <div class="row"><a class="btn primary" href="${u}" download="${esc(f.name)}">Save</a><button class="btn" data-share hidden>Share</button></div>`;
+      const sb=el.querySelector("[data-share]");
+      if(navigator.canShare && navigator.canShare({files:[f]})){ sb.hidden=false; sb.onclick=()=>navigator.share({files:[f]}).catch(()=>{}); }
+    });
+  }
+}
+const safeName=s=>String(s||"clip").replace(/[\\/:*?"<>|]+/g,"").slice(0,60).trim()||"clip";
+const ghLink=id=>`<a class="btn small" href="https://github.com/${esc(CFG.repo)}/actions/runs/${id}" target="_blank" rel="noopener">Open on GitHub</a>`;
+
+const LABEL={most_replayed:"Viewer replays",comment_timestamps:"Comment timestamps",audio_excitement:"Loudness spikes",visual_energy:"Scene cuts",your_analytics_peak:"Your analytics peak"};
+function dashboard(a,st,runId){
+  const s=a.stats||{}, aud=a.signals_used.filter(x=>["most_replayed","comment_timestamps","your_analytics_peak"].includes(x));
+  const based = aud.length
+    ? "Based on what viewers did: "+aud.map(x=>x==="comment_timestamps"?`${a.comment_stamps.reduce((n,c)=>n+1,0)} comment timestamps`:LABEL[x].toLowerCase()).join(" + ")+", plus loudness and scene cuts."
+    : "No viewer data for this video, so the pick is estimated from loudness and scene cuts. Add the most-watched time from your analytics to improve it.";
+  const tiles=[["Views",s.views],["Likes",s.likes],["Comments",s.comments],["Shares",s.shares],["Engagement",s.engagement_rate!=null?s.engagement_rate+"%":null],["Followers",s.channel_follower_count]]
+    .filter(t=>t[1]!=null).map(t=>`<div class="tile"><span class="label">${t[0]}</span><b>${typeof t[1]==="number"?num(t[1]):esc(t[1])}</b></div>`).join("");
+  const date=s.upload_date?` · posted ${s.upload_date.slice(6,8)}/${s.upload_date.slice(4,6)}/${s.upload_date.slice(0,4)}`:"";
+  return `<div class="group"><h2>${esc(a.title)}</h2><span class="hint">${esc(s.channel||s.uploader||"")}${s.extractor_key?" · "+esc(s.extractor_key):""}${date} · ${tc(a.duration)} long</span></div>
+    <p class="based" style="margin:0">${esc(based)}</p>
+    ${tiles?`<div class="tiles">${tiles}</div>`:""}
+    <div class="group"><span class="label">Why this moment</span>
+      <div class="chartwrap"><canvas id="chart" aria-label="Viral score and signals across the whole video, with the chosen clips highlighted"></canvas><div class="tip" id="tip" hidden></div></div>
+      <div class="legend" id="legend"></div>
+      <span class="hint">Tap the chart to see the values at any moment. Shaded areas are the clips.</span></div>
+    <div class="group" id="clips"><span class="label">Clips</span></div>
+    <div class="row">${ghLink(runId)}${s.webpage_url?`<a class="btn small" href="${esc(s.webpage_url)}" target="_blank" rel="noopener">Original video</a>`:""}</div>`;
+}
+
+/* ---------------- chart ---------------- */
+const SERIES=[["score","Viral score","--heat",3],["most_replayed","Viewer replays","--replay",2],["comment_timestamps","Comment timestamps","--cmt",2],["audio_excitement","Loudness","--aud",1.25],["visual_energy","Scene cuts","--vis",1.25]];
+let CH=null;
+function bindChart(a){
+  const on={}; SERIES.forEach(([k])=>on[k]=!!a.series[k]);
+  const lg=$("legend");
+  lg.innerHTML=SERIES.filter(([k])=>a.series[k]).map(([k,l,c])=>`<button class="lg" data-k="${k}" aria-pressed="true"><i style="background:var(${c})"></i>${l}</button>`).join("")
+    +(a.peak_time!=null?`<span class="lg" style="cursor:default"><i style="background:var(--fg);width:2px;height:12px"></i>Your peak ${tc(a.peak_time)}</span>`:"");
+  lg.onclick=e=>{ const b=e.target.closest("[data-k]"); if(!b||b.dataset.k==="score") return; on[b.dataset.k]=!on[b.dataset.k]; b.setAttribute("aria-pressed",on[b.dataset.k]); draw(); };
+  CH={a,on,hover:null}; draw();
+  const c=$("chart"), pos=e=>{ const r=c.getBoundingClientRect(); return Math.max(0,Math.min(1,((e.touches?e.touches[0].clientX:e.clientX)-r.left)/r.width)); };
+  const show=e=>{ CH.hover=pos(e); draw(); };
+  c.onpointermove=show; c.onpointerdown=show; c.onpointerleave=()=>{ CH.hover=null; $("tip").hidden=true; draw(); };
+}
+function draw(){
+  if(!CH) return; const {a,on,hover}=CH, c=$("chart"), r=c.getBoundingClientRect(), dpr=devicePixelRatio||1;
+  c.width=Math.round(r.width*dpr); c.height=Math.round(r.height*dpr);
+  const x=c.getContext("2d"); x.scale(dpr,dpr); const W=r.width,H=r.height,P={l:6,r:6,t:18,b:20},iw=W-P.l-P.r,ih=H-P.t-P.b;
+  const X=t=>P.l+t/a.duration*iw, Y=v=>P.t+ih-v*ih;
+  x.clearRect(0,0,W,H);
+  x.strokeStyle=css("--line"); x.lineWidth=1;
+  for(let g=0;g<=4;g++){ const y=Math.round(P.t+ih*g/4)+.5; x.beginPath(); x.moveTo(P.l,y); x.lineTo(W-P.r,y); x.stroke(); }
+  // time ticks
+  x.fillStyle=css("--muted"); x.font="11px "+css("--mono"); x.textBaseline="top";
+  const nt=W<500?3:6; for(let i=0;i<=nt;i++){ const t=a.duration*i/nt; x.textAlign=i===0?"left":i===nt?"right":"center"; x.fillText(tc(t),X(t),H-P.b+5); }
+  // clip windows
+  a.moments.forEach(m=>{ x.fillStyle=css("--heat"); x.globalAlpha=.16; x.fillRect(X(m.start),P.t,X(m.end)-X(m.start),ih); x.globalAlpha=1;
+    x.fillStyle=css("--heat-ink"); x.font="600 11px "+css("--mono"); x.textAlign="left"; x.textBaseline="top"; x.fillText("#"+m.rank,X(m.start)+4,2); });
+  // series
+  const step=a.step_seconds;
+  SERIES.slice().reverse().forEach(([k,,col,w])=>{ const s=a.series[k]; if(!s||!on[k]) return;
+    x.beginPath(); s.forEach((v,i)=>{ const px=X(i*step+step/2), py=Y(v); i?x.lineTo(px,py):x.moveTo(px,py); });
+    x.strokeStyle=css(col); x.lineWidth=w; x.lineJoin="round"; x.globalAlpha=k==="score"?1:.85; x.stroke(); x.globalAlpha=1;
+    if(k==="score"){ x.lineTo(X(s.length*step),Y(0)); x.lineTo(X(0),Y(0)); x.closePath(); x.fillStyle=css(col); x.globalAlpha=.12; x.fill(); x.globalAlpha=1; }
+  });
+  // comment stamps as ticks on the baseline
+  if(on.comment_timestamps!==false && a.comment_stamps.length){ const mx=Math.max(...a.comment_stamps.map(c=>c[1]));
+    x.fillStyle=css("--cmt"); a.comment_stamps.forEach(([t,w])=>{ const h=4+10*w/mx; x.fillRect(X(t)-1,P.t+ih-h,2,h); }); }
+  // analytics peak
+  if(a.peak_time!=null){ x.strokeStyle=css("--fg"); x.setLineDash([4,3]); x.lineWidth=1.5; x.beginPath(); x.moveTo(X(a.peak_time),P.t); x.lineTo(X(a.peak_time),P.t+ih); x.stroke(); x.setLineDash([]); }
+  // hover
+  const tip=$("tip");
+  if(hover!=null){ const t=hover*a.duration, i=Math.min(a.series.score.length-1,Math.floor(t/step)), px=X(t);
+    x.strokeStyle=css("--fg"); x.lineWidth=1; x.beginPath(); x.moveTo(px,P.t); x.lineTo(px,P.t+ih); x.stroke();
+    const lines=[tc(t)].concat(SERIES.filter(([k])=>a.series[k]&&on[k]).map(([k,l])=>`${l}: ${Math.round(a.series[k][i]*100)}`));
+    tip.innerHTML=lines.map(esc).join("<br>"); tip.hidden=false;
+    tip.style.left=Math.max(70,Math.min(W-70,px))+"px"; tip.style.top=P.t+"px";
+  }
+}
+addEventListener("resize",()=>draw());
+matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change",()=>draw());
+
+/* ---------------- history ---------------- */
+async function loadHist(){
+  if(!CFG.key) return;
+  try{ const r=await gh(repoPath("/actions/workflows/clip.yml/runs?per_page=15")); if(!r.ok) return; const j=await r.json();
+    const runs=j.workflow_runs||[]; $("histPanel").hidden=!runs.length; const box=$("hist"); box.innerHTML="";
+    runs.forEach(run=>{ const b=document.createElement("button");
+      const link=(run.display_title||"").replace(/^Clip\s+(pk\w+\s+)?/,"");
+      const st=run.status!=="completed"?"working…":run.conclusion==="success"?"✓ "+new Date(run.created_at).toLocaleDateString():"failed";
+      b.innerHTML=`<span class="t">${esc(link||"Clip #"+run.run_number)}</span><span class="hint">${esc(st)}</span>`;
+      b.onclick=()=>{ scrollTo({top:0,behavior:"smooth"}); run.status==="completed"? showResult(run.id) : track({runId:run.id,link}); };
+      box.appendChild(b); });
+    const active=runs.find(x=>x.status!=="completed"); if(active && $("progress").hidden) track({runId:active.id,link:(active.display_title||"").replace(/^Clip\s+(pk\w+\s+)?/,"")});
+  }catch(e){}
+}
+$("refresh").onclick=loadHist;
+
+showSetup(false); loadHist();
+</script>
+</body>
+</html>
