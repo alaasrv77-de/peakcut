@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+</head>
+<body>
+<title>Peakcut · Upload</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=Unbounded:wght@600;800&display=swap">
+<style>
+[hidden]{display:none!important}
+/* Layout: an editing-suite column — player, heat timeline, then ranked moments; settings sit between analysis and export */
+:root{
+  --bg:#EEF0F4; --surface:#FFFFFF; --fg:#15171D; --muted:#5D6272; --line:#D8DCE4;
+  --heat:#F2A10F; --heat-ink:#9A5B00; --ink:#15171D; --on-ink:#FFFFFF; --sel:#2A62F4;
+  --display:"Unbounded",system-ui,sans-serif;
+  --body:"IBM Plex Sans Arabic",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0F1116; --surface:#181B22; --fg:#E9EBF0; --muted:#9298A8; --line:#2A2E39;
+  --heat:#F5AE2A; --heat-ink:#F5C567; --ink:#F1F2F5; --on-ink:#111318; --sel:#6E95FF; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F1116; --surface:#181B22; --fg:#E9EBF0; --muted:#9298A8; --line:#2A2E39;
+  --heat:#F5AE2A; --heat-ink:#F5C567; --ink:#F1F2F5; --on-ink:#111318; --sel:#6E95FF; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+.wrap{max-width:880px;margin:0 auto;display:grid;gap:20px}
+header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{font-family:var(--display);font-weight:800;font-size:26px;letter-spacing:-.02em;margin:0}
+h1 span{color:var(--heat-ink)}
+.sub{color:var(--muted);margin:2px 0 0;max-width:60ch}
+.hint{font-size:13px;color:var(--muted)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:grid;gap:14px;min-width:0}
+.label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.drop{border:1.5px dashed var(--line);border-radius:10px;padding:18px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;cursor:pointer}
+.drop.over{border-color:var(--heat);background:color-mix(in srgb,var(--heat) 8%,transparent)}
+.drop strong{display:block}
+.btn{font:600 14px var(--body);border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:8px;padding:8px 14px;cursor:pointer}
+.btn.primary{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
+.btn:disabled{opacity:.45;cursor:default}
+.btn:focus-visible,.chip:focus-visible,canvas:focus-visible{outline:2px solid var(--sel);outline-offset:2px}
+video{width:100%;max-height:52vh;background:#000;border-radius:8px;display:block}
+.tl{position:relative}
+#timeline{width:100%;height:96px;display:block;cursor:pointer;border-radius:6px}
+.tc{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:13px}
+.row{display:flex;flex-wrap:wrap;gap:18px 28px}
+.group{display:grid;gap:6px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:500 13px var(--body);border:1px solid var(--line);background:transparent;color:var(--fg);border-radius:999px;padding:5px 12px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
+.status{display:flex;gap:10px;align-items:center;font-size:14px}
+.bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden;flex:1;min-width:80px}
+.bar i{display:block;height:100%;width:0;background:var(--heat);transition:width .2s}
+.moments{display:grid;gap:10px}
+.m{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:12px}
+.m.active{border-color:var(--heat)}
+.rank{font-family:var(--display);font-weight:800;font-size:20px;width:36px;text-align:center;color:var(--heat-ink)}
+.mi{min-width:0;display:grid;gap:4px}
+.score{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.score .bar{max-width:140px;height:4px}
+.acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.nudge{display:flex;gap:4px}
+.nudge .btn{padding:4px 8px;font-size:12px}
+.out{display:grid;gap:10px;justify-items:start}
+#outPrev{max-width:100%;max-height:60vh;border-radius:8px;background:#000}
+.clipat{display:grid;gap:6px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.row2{display:flex;gap:8px}
+#atTime{flex:1;min-width:0;font:16px var(--mono);color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+#atTime:focus-visible{outline:2px solid var(--sel);outline-offset:1px}
+.aud summary{cursor:pointer;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.audin{display:grid;gap:8px;margin-top:10px}
+textarea{width:100%;font:14px/1.5 var(--body);color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;resize:vertical}
+textarea:focus-visible{outline:2px solid var(--sel);outline-offset:1px}
+.note{font-size:13px;color:var(--muted);border-left:3px solid var(--heat);padding-left:10px}
+.err{color:#C2362B}
+@media (max-width:560px){.m{grid-template-columns:auto 1fr}.acts{grid-column:1/-1;justify-content:flex-start}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Peak<span>cut</span></h1>
+      <p style="margin:6px 0 0"><a href="./" style="color:inherit">← Paste a link instead</a></p>
+      <p class="sub">Drop a video. Peakcut listens for the loudest reactions, watches for bursts of cuts, and hands you the moment most likely to travel.</p>
+    </div>
+  </header>
+
+  <section class="panel" id="srcPanel">
+    <label class="drop" id="drop" for="file">
+      <div style="flex:1;min-width:200px">
+        <strong>Choose a video or drop it here</strong>
+        <span class="hint">MP4, MOV or WebM from your phone or PC. Nothing is uploaded; it all runs on your device.</span>
+      </div>
+      <span class="btn primary">Choose video</span>
+      <input type="file" id="file" accept="video/*" hidden>
+    </label>
+    <p class="note">Have a YouTube, TikTok or Instagram link? Links only work in the PC version, which also uses YouTube's "Most replayed" data and can burn in captions.</p>
+  </section>
+
+  <section class="panel" id="work">
+    <video id="player" controls playsinline hidden></video>
+    <div class="tl">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px">
+        <span class="label" id="tlLabel">Example analysis</span>
+        <span class="tc hint" id="tlDur"></span>
+      </div>
+      <canvas id="timeline" tabindex="0" aria-label="Viral score over time. Click to jump."></canvas>
+    </div>
+    <details class="aud" id="audBox">
+      <summary><span class="label">Audience data</span> <span class="hint" id="sigLine">Optional: paste comments to rank by what viewers point at</span></summary>
+      <div class="audin">
+        <label class="hint" for="cmts">Copy the comments from YouTube, TikTok, Instagram or Facebook and paste them here. Timestamps like 1:24 or ١:٢٤ count as votes for that moment.</label>
+        <textarea id="cmts" rows="5" placeholder="0:42 this part 😂&#10;who's here for 1:15&#10;٢:٠٣ اقوى لحظة"></textarea>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn" id="useCmts">Use comments</button><span class="hint" id="cmtMsg"></span></div>
+      </div>
+    </details>
+    <div class="status" id="status" hidden><span id="statusText">Analyzing…</span><div class="bar"><i id="statusBar"></i></div></div>
+
+    <div class="row">
+      <div class="group"><span class="label">Clip length</span>
+        <div class="chips" data-opt="len">
+          <button class="chip" data-v="15">15 s</button><button class="chip" data-v="30" aria-pressed="true">30 s</button>
+          <button class="chip" data-v="45">45 s</button><button class="chip" data-v="60">60 s</button></div></div>
+      <div class="group"><span class="label">Format</span>
+        <div class="chips" data-opt="fmt">
+          <button class="chip" data-v="original">Original</button><button class="chip" data-v="vcrop">9:16 crop</button>
+          <button class="chip" data-v="vblur" aria-pressed="true">9:16 blur fill</button><button class="chip" data-v="square">1:1</button></div></div>
+      <div class="group"><span class="label">Moments</span>
+        <div class="chips" data-opt="count">
+          <button class="chip" data-v="1">1</button><button class="chip" data-v="3" aria-pressed="true">3</button><button class="chip" data-v="5">5</button></div></div>
+    </div>
+  </section>
+
+  <section class="panel" id="momPanel">
+    <span class="label">Top moments</span>
+    <div class="clipat">
+      <label class="hint" for="atTime">Know the peak from your analytics (Instagram retention, YouTube's replay graph, TikTok stats)? Type the time to clip it.</label>
+      <div class="row2"><input id="atTime" inputmode="text" placeholder="1:24" autocomplete="off"><button class="btn" id="atBtn">Clip at this time</button></div>
+      <p class="hint" id="atMsg" role="status"></p>
+    </div>
+    <div class="moments" id="moments"><p class="hint">Your ranked moments appear here once a video is analyzed.</p></div>
+  </section>
+
+  <section class="panel" id="outPanel" hidden>
+    <span class="label">Export</span>
+    <div class="out">
+      <canvas id="outCanvas" hidden></canvas>
+      <video id="outPrev" controls playsinline hidden></video>
+      <div class="status" style="width:100%"><span id="outText"></span><div class="bar"><i id="outBar"></i></div></div>
+      <button class="btn primary" id="saveBtn" hidden>Save clip</button>
+      <p class="hint" id="saveMsg"></p>
+    </div>
+  </section>
+</div>
+
+<script>
+const WIN = 0.5;
+const $ = id => document.getElementById(id);
+const S = { url:null, name:"clip", dur:0, aud:null, vis:null, score:null, picks:[], active:-1,
+            opt:{len:30, fmt:"vblur", count:3}, blob:null, ext:"webm", example:true };
+
+/* ---------- math ---------- */
+const norm = a => { let mn=Infinity,mx=-Infinity; for(const v of a){if(v<mn)mn=v;if(v>mx)mx=v;}
+  const r=mx-mn; return a.map(v=> r? (v-mn)/r : 0); };
+function smooth(a,k){ if(k<=1||a.length<k) return a.slice(); const h=k>>1, out=new Float64Array(a.length);
+  let s=0; const pre=[0]; for(const v of a) pre.push(s+=v);
+  for(let i=0;i<a.length;i++){ const lo=i-h, hi=i+h+1; out[i]=(pre[Math.min(hi,a.length)]-pre[Math.max(lo,0)])/k; } return Array.from(out); }
+const tc = s => { s=Math.max(0,s); const m=Math.floor(s/60), x=(s%60).toFixed(1).padStart(4,"0"); return `${m}:${x}`; };
+
+function pickMoments(score,len,count,dur){
+  const w=Math.max(1,Math.round(len/WIN)), n=score.length;
+  if(n<=w) return [{start:0,end:Math.min(dur,len),val:1}];
+  const pre=[0]; for(const v of score) pre.push(pre[pre.length-1]+v);
+  const val=[]; for(let i=0;i+w<=n;i++){ let pk=0; for(let j=i;j<i+w;j++) if(score[j]>pk) pk=score[j];
+    val.push(0.6*(pre[i+w]-pre[i])/w + 0.4*pk); }
+  const order=val.map((v,i)=>i).sort((a,b)=>val[b]-val[a]), best=val[order[0]], picks=[], starts=[];
+  for(const i of order){ if(picks.length>=count) break; if(picks.length && val[i]<0.3*best) break;
+    let pk=i; for(let j=i;j<i+w;j++) if(score[j]>score[pk]) pk=j;
+    const st=Math.max(0,Math.min(pk-Math.round(0.35*w), n-w));
+    if(starts.some(s=>Math.abs(s-st)<w)) continue;
+    starts.push(st); picks.push({start:st*WIN,end:Math.min(dur,st*WIN+len),val:val[i]/best}); }
+  return picks;
+}
+
+/* ---------- analysis ---------- */
+function setStatus(t,p){ $("status").hidden=false; $("statusText").textContent=t; $("statusBar").style.width=(p*100)+"%"; }
+
+async function audioSignal(file,n){
+  try{
+    const AC=window.AudioContext||window.webkitAudioContext, ac=new AC();
+    const buf=await ac.decodeAudioData(await file.arrayBuffer()); ac.close();
+    const ch=buf.getChannelData(0), hop=Math.floor(buf.sampleRate*WIN), db=new Array(n).fill(-60);
+    for(let k=0;k<n;k++){ let s=0,c=0; for(let i=k*hop;i<Math.min((k+1)*hop,ch.length);i+=4){ s+=ch[i]*ch[i]; c++; }
+      if(c) db[k]=Math.max(-60,10*Math.log10(s/c+1e-12)); }
+    const base=smooth(db,61), above=db.map((v,i)=>Math.max(0,v-base[i])),
+          jump=db.map((v,i)=>Math.max(0,v-(db[i-1]??v)));
+    const a=smooth(above,3), j=smooth(jump,3);
+    return norm(a.map((v,i)=>0.7*v+0.3*j[i]));
+  }catch(e){ return null; }
+}
+
+function seek(v,t){ return new Promise(r=>{ const done=()=>{v.removeEventListener("seeked",done);clearTimeout(to);r();};
+  const to=setTimeout(done,3000); v.addEventListener("seeked",done); v.currentTime=t; }); }
+
+async function visualSignal(n,onP){
+  const v=document.createElement("video"); v.src=S.url; v.muted=true; v.playsInline=true; v.preload="auto";
+  await new Promise(r=>{ v.onloadeddata=r; v.onerror=r; });
+  const W=64,H=36, c=document.createElement("canvas"); c.width=W;c.height=H; const x=c.getContext("2d",{willReadFrequently:true});
+  const step=Math.max(1,S.dur/600), sig=new Array(n).fill(0); let prev=null;
+  for(let t=0;t<S.dur;t+=step){
+    await seek(v,t); x.drawImage(v,0,0,W,H); const d=x.getImageData(0,0,W,H).data;
+    if(prev){ let s=0; for(let i=0;i<d.length;i+=4) s+=Math.abs(d[i]-prev[i])+Math.abs(d[i+1]-prev[i+1])+Math.abs(d[i+2]-prev[i+2]);
+      const diff=s/(W*H*765); const k0=Math.floor(t/WIN), k1=Math.min(n,Math.floor((t+step)/WIN));
+      for(let k=k0;k<Math.max(k1,k0+1)&&k<n;k++) sig[k]=diff; }
+    prev=d; onP(t/S.dur);
+  }
+  v.removeAttribute("src"); v.load();
+  return norm(smooth(sig,9));
+}
+
+async function analyze(file){
+  S.example=false; S.picks=[]; S.active=-1; renderMoments();
+  if(S.url) URL.revokeObjectURL(S.url);
+  S.url=URL.createObjectURL(file); S.name=file.name.replace(/\.[^.]+$/,"")||"clip";
+  const p=$("player"); p.src=S.url; p.hidden=false;
+  await new Promise((r,j)=>{ p.onloadedmetadata=r; p.onerror=()=>j(); }).catch(()=>{});
+  if(!isFinite(p.duration)||!p.duration){ setStatus("This browser can't open that video format. Try an MP4.",0); return; }
+  S.dur=p.duration; const n=Math.ceil(S.dur/WIN);
+  $("tlLabel").textContent="Viral score"; $("tlDur").textContent=tc(S.dur);
+  setStatus("Listening to the audio…",0.05);
+  S.aud=await audioSignal(file,n);
+  S.vis=await visualSignal(n,f=>setStatus("Watching for visual bursts…",0.15+0.8*f));
+  $("status").hidden=true;
+  if(!S.aud) note("Couldn't read this video's audio (very large files or unusual codecs), so moments are ranked on visuals only.");
+  combine();
+}
+
+/* ---------- audience data: comment timestamps ---------- */
+const TS=/(?<![\d:])(?:(\d{1,2}):)?(\d{1,2}):([0-5]\d)(?![\d:])/g;
+function commentTimes(text){
+  text=text.replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[۰-۹]/g,d=>"۰۱۲۳۴۵۶۷۸۹".indexOf(d));
+  const out=[];
+  for(const line of text.split(/\n+/)){ const st=new Set();
+    for(const m of line.matchAll(TS)){ const t=(+(m[1]||0))*3600+(+m[2])*60+(+m[3]); if(t<=S.dur) st.add(t); }
+    st.forEach(t=>out.push([t,1/st.size])); }   // a list of 10 stamps counts as one vote
+  return out;
+}
+function commentSignal(times,n){
+  const sig=new Array(n).fill(0);
+  for(const [t,w] of times){ const i=Math.floor(t/WIN); for(let k=0;k<16&&i+k<n;k++) sig[i+k]+=w*Math.exp(-0.5*((k-6)/4)**2); }
+  return norm(sig);
+}
+function combine(){
+  if(!S.vis) return; const n=S.vis.length, a=S.aud||new Array(n).fill(0), c=S.cmt;
+  const raw = c ? S.vis.map((v,i)=>0.6*c[i]+0.26*a[i]+0.14*v)
+           : S.aud ? S.vis.map((v,i)=>0.65*a[i]+0.35*v) : S.vis.slice();
+  S.score=smooth(raw,3);
+  $("sigLine").textContent = c ? `Using ${S.cmtCount} comment timestamps + audio + visuals`
+                               : "Optional: paste comments to rank by what viewers point at";
+  $("tlLabel").textContent = c ? "Viral score · audience data" : "Viral score · estimated from the video";
+  recompute();
+}
+$("useCmts").addEventListener("click",()=>{
+  const msg=$("cmtMsg");
+  if(!S.vis){ msg.textContent="Choose a video first."; return; }
+  const times=commentTimes($("cmts").value);
+  if(times.length<3){ S.cmt=null; msg.textContent= times.length? `Only ${times.length} timestamp(s) found. Paste more comments; 3 or more are needed.` : "No timestamps found in the pasted text."; combine(); return; }
+  S.cmt=commentSignal(times,S.vis.length); S.cmtCount=times.length; msg.textContent=`${times.length} timestamps found.`; combine();
+});
+
+function note(t){ const m=$("moments"); const p=document.createElement("p"); p.className="note"; p.textContent=t; m.before(p); setTimeout(()=>p.remove(),12000); }
+
+function recompute(){ if(!S.score) return; const own=S.picks.find(p=>p.own);
+  S.picks=pickMoments(S.score,S.opt.len,S.opt.count,S.dur);
+  if(own){ const L=Math.min(S.opt.len,S.dur), st=Math.max(0,Math.min(S.dur-L,own.at-0.35*L)); S.picks.unshift({...own,start:st,end:st+L}); }   // keep the user's own pick
+  S.active=S.picks.length?0:-1; renderMoments(); drawTimeline(); }
+
+/* ---------- timeline ---------- */
+function css(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+function exampleScore(){ const n=240,a=[]; for(let i=0;i<n;i++){ const t=i/n;
+  a.push(0.18+0.1*Math.sin(t*23)+0.08*Math.sin(t*61)+0.75*Math.exp(-((t-0.62)**2)/0.0012)+0.35*Math.exp(-((t-0.24)**2)/0.0008)); } return norm(a); }
+function drawTimeline(){
+  const c=$("timeline"), r=c.getBoundingClientRect(), dpr=window.devicePixelRatio||1;
+  c.width=Math.round(r.width*dpr); c.height=Math.round(r.height*dpr);
+  const x=c.getContext("2d"); x.scale(dpr,dpr); const W=r.width,H=r.height, pad=4;
+  const sc=S.score||exampleScore(), dur=S.score?S.dur:120, picks=S.score?S.picks:[{start:70,end:85},{start:25,end:40}];
+  x.fillStyle=css("--bg"); x.fillRect(0,0,W,H);
+  x.strokeStyle=css("--line"); x.lineWidth=1;
+  for(let g=1;g<4;g++){ const y=Math.round(H*g/4)+.5; x.beginPath(); x.moveTo(0,y); x.lineTo(W,y); x.stroke(); }
+  picks.forEach((p,i)=>{ const a=p.start/dur*W, b=p.end/dur*W;
+    x.fillStyle=i===S.active||!S.score&&i===0? "color-mix(in srgb, "+css("--sel")+" 18%, transparent)" : "color-mix(in srgb, "+css("--fg")+" 7%, transparent)";
+    x.fillRect(a,0,b-a,H); x.fillStyle=css("--muted"); x.font="600 11px "+css("--mono"); x.fillText("#"+(i+1),a+4,13); });
+  const hc=css("--heat"), g=x.createLinearGradient(0,0,0,H); g.addColorStop(0,hc); g.addColorStop(1,"color-mix(in srgb, "+hc+" 10%, transparent)");
+  x.beginPath(); x.moveTo(0,H);
+  sc.forEach((v,i)=>x.lineTo(i/(sc.length-1)*W, H-pad-v*(H-pad*2-14)));
+  x.lineTo(W,H); x.closePath(); x.fillStyle=g; x.fill();
+  x.beginPath(); sc.forEach((v,i)=>{ const px=i/(sc.length-1)*W, py=H-pad-v*(H-pad*2-14); i?x.lineTo(px,py):x.moveTo(px,py); });
+  x.strokeStyle=hc; x.lineWidth=1.5; x.stroke();
+  if(S.score){ const t=$("player").currentTime/dur*W; x.fillStyle=css("--fg"); x.fillRect(Math.round(t)-1,0,2,H); }
+}
+$("timeline").addEventListener("click",e=>{ if(!S.score) return; const r=e.currentTarget.getBoundingClientRect();
+  $("player").currentTime=(e.clientX-r.left)/r.width*S.dur; drawTimeline(); });
+$("player").addEventListener("timeupdate",drawTimeline);
+window.addEventListener("resize",drawTimeline);
+matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change",drawTimeline);
+
+/* ---------- moments list ---------- */
+function renderMoments(){
+  const box=$("moments"); box.innerHTML="";
+  if(!S.picks.length){ box.innerHTML='<p class="hint">'+(S.score?"No standout moment found. Try a shorter clip length.":"Your ranked moments appear here once a video is analyzed.")+'</p>'; return; }
+  S.picks.forEach((p,i)=>{
+    const el=document.createElement("div"); el.className="m"+(i===S.active?" active":"");
+    const best=S.picks.find(q=>!q.own);
+    el.innerHTML=`<div class="rank">${p.own?"★":i+1-S.picks.filter((q,k)=>q.own&&k<i).length}</div>
+      <div class="mi"><span class="tc">${tc(p.start)} → ${tc(p.end)} <span class="hint">· ${Math.round(p.end-p.start)} s</span></span>
+        <div class="score">${p.own?`Your pick at ${tc(p.at)}`:`<div class="bar"><i style="width:${Math.round(p.val*100)}%"></i></div>${p===best?"strongest":Math.round(p.val*100)+"% of #1"}`}</div></div>
+      <div class="acts"><div class="nudge"><button class="btn" data-a="back" aria-label="Start 1 second earlier">−1s</button><button class="btn" data-a="fwd" aria-label="Start 1 second later">+1s</button></div>
+        <button class="btn" data-a="play">Preview</button><button class="btn primary" data-a="export">Export</button></div>`;
+    el.addEventListener("click",ev=>{ const a=ev.target.dataset?.a; if(!a) return;
+      S.active=i; const pl=$("player");
+      if(a==="back"||a==="fwd"){ const d=a==="back"?-1:1, L=p.end-p.start; p.start=Math.max(0,Math.min(S.dur-L,p.start+d)); p.end=p.start+L; }
+      if(a==="play"){ pl.currentTime=p.start; pl.play(); const stop=()=>{ if(pl.currentTime>=p.end){ pl.pause(); pl.removeEventListener("timeupdate",stop);} }; pl.addEventListener("timeupdate",stop); }
+      if(a==="export") exportClip(p);
+      renderMoments(); drawTimeline(); });
+    box.appendChild(el);
+  });
+}
+
+/* ---------- options ---------- */
+document.querySelectorAll("[data-opt]").forEach(g=>g.addEventListener("click",e=>{
+  const b=e.target.closest(".chip"); if(!b) return;
+  g.querySelectorAll(".chip").forEach(c=>c.setAttribute("aria-pressed",c===b?"true":"false"));
+  const k=g.dataset.opt; S.opt[k]= k==="fmt"? b.dataset.v : Number(b.dataset.v);
+  if(k!=="fmt") recompute();
+}));
+document.querySelectorAll(".chip:not([aria-pressed])").forEach(c=>c.setAttribute("aria-pressed","false"));
+
+/* ---------- export ---------- */
+function outSize(f,vw,vh){
+  if(f==="vcrop"||f==="vblur") return [1080,1920];
+  if(f==="square") return [1080,1080];
+  const s=Math.min(1,1920/Math.max(vw,vh)); return [Math.round(vw*s/2)*2,Math.round(vh*s/2)*2];
+}
+function drawFrame(x,v,f,W,H){
+  const vw=v.videoWidth, vh=v.videoHeight;
+  if(f==="original"){ x.drawImage(v,0,0,W,H); return; }
+  if(f==="vcrop"||f==="square"){ const ar=W/H, cw=Math.min(vw,vh*ar), ch=cw/ar; x.drawImage(v,(vw-cw)/2,(vh-ch)/2,cw,ch,0,0,W,H); return; }
+  const cs=Math.max(W/vw,H/vh); x.filter="blur(28px) brightness(0.8)";
+  x.drawImage(v,(W-vw*cs)/2,(H-vh*cs)/2,vw*cs,vh*cs); x.filter="none";
+  const fs=Math.min(W/vw,H/vh); x.drawImage(v,(W-vw*fs)/2,(H-vh*fs)/2,vw*fs,vh*fs);
+}
+function pickMime(){ const c=["video/mp4;codecs=avc1.640028,mp4a.40.2","video/mp4;codecs=avc1,mp4a","video/mp4","video/webm;codecs=vp9,opus","video/webm;codecs=vp8,opus","video/webm"];
+  return c.find(m=>window.MediaRecorder&&MediaRecorder.isTypeSupported(m)); }
+
+/* ---------- clip at a time from analytics ---------- */
+function parseTime(s){
+  s=String(s).replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[۰-۹]/g,d=>"۰۱۲۳۴۵۶۷۸۹".indexOf(d)).replace(/[٫,]/g,".").trim();
+  if(/^\d+(\.\d+)?$/.test(s)) return parseFloat(s);
+  const m=s.match(/^(?:(\d{1,2}):)?(\d{1,2}):(\d{1,2}(?:\.\d+)?)$/);
+  return m ? (+(m[1]||0))*3600+(+m[2])*60+parseFloat(m[3]) : NaN;
+}
+$("atBtn").addEventListener("click",()=>{
+  const msg=$("atMsg");
+  if(!S.dur){ msg.textContent="Choose a video first."; return; }
+  const t=parseTime($("atTime").value);
+  if(!isFinite(t)){ msg.textContent="Type a time like 1:24 or 0:45."; return; }
+  if(t>S.dur){ msg.textContent=`This video is only ${tc(S.dur)} long.`; return; }
+  const L=Math.min(S.opt.len,S.dur);
+  // the peak sits about a third of the way in: a little build-up, then the payoff
+  const start=Math.max(0,Math.min(S.dur-L,t-0.35*L));
+  S.picks=S.picks.filter(p=>!p.own);
+  S.picks.unshift({start,end:start+L,val:1,own:true,at:t}); S.active=0;
+  msg.textContent=`Added: ${tc(start)} → ${tc(start+L)}. Preview it, nudge ±1s if needed, then Export.`;
+  renderMoments(); drawTimeline();
+});
+$("atTime").addEventListener("keydown",e=>{ if(e.key==="Enter") $("atBtn").click(); });
+
+let exporting=false;
+async function exportClip(p){
+  if(exporting) return; const mime=pickMime();
+  $("outPanel").hidden=false; $("saveBtn").hidden=true; $("saveMsg").textContent=""; $("outPrev").hidden=true;
+  if(!mime){ $("outText").textContent="This browser can't record video. Use Chrome, Edge or the PC version."; return; }
+  exporting=true; $("player").pause();
+  const v=document.createElement("video"); v.src=S.url; v.playsInline=true; v.setAttribute("playsinline",""); v.preload="auto";
+  // Phones pause or stop decoding videos that aren't on the page, so keep it attached (but invisible).
+  v.style.cssText="position:fixed;left:0;bottom:0;width:2px;height:2px;opacity:0.01;pointer-events:none";
+  document.body.appendChild(v);
+  let lock=null; try{ lock=await navigator.wakeLock?.request("screen"); }catch(e){}   // don't let the screen sleep mid-export
+  await new Promise(r=>{ v.onloadeddata=r; });
+  await seek(v,p.start);
+  const [W,H]=outSize(S.opt.fmt,v.videoWidth,v.videoHeight), c=$("outCanvas"); c.width=W; c.height=H; c.hidden=false;
+  c.style.width=Math.min(280,W/4)+"px"; const x=c.getContext("2d"); drawFrame(x,v,S.opt.fmt,W,H);
+  const stream=c.captureStream(30);
+  try{ const AC=window.AudioContext||window.webkitAudioContext, ac=new AC(), src=ac.createMediaElementSource(v), dst=ac.createMediaStreamDestination();
+    src.connect(dst); dst.stream.getAudioTracks().forEach(t=>stream.addTrack(t)); v._ac=ac; }catch(e){}
+  const rec=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:8_000_000,audioBitsPerSecond:160_000}), chunks=[];
+  rec.ondataavailable=e=>e.data.size&&chunks.push(e.data);
+  const done=new Promise(r=>rec.onstop=r);
+  const L=p.end-p.start; $("outText").textContent=`Recording ${Math.round(L)} s clip. Keep this screen open; it takes as long as the clip.`;
+  // One continuous recording (no timeslice): chunked recordings on Safari/iOS can play back as only the first few seconds.
+  rec.start(); await v.play().catch(()=>{});
+  await new Promise(r=>{
+    let fin=false, last=-1, lastMove=performance.now();
+    const finish=()=>{ if(fin) return; fin=true; clearInterval(wd); v.pause(); r(); };
+    const step=()=>{ if(fin) return; drawFrame(x,v,S.opt.fmt,W,H);
+      $("outBar").style.width=Math.min(100,(v.currentTime-p.start)/L*100)+"%";
+      if(v.currentTime>=p.end||v.ended) finish(); };
+    const loop=()=>{ step(); if(!fin) (v.requestVideoFrameCallback ? v.requestVideoFrameCallback(loop) : requestAnimationFrame(loop)); };
+    // Watchdog: keeps drawing when frame callbacks stop (screen dimmed, app switched) and restarts a stalled video.
+    const wd=setInterval(()=>{ if(fin) return; step();
+      if(v.currentTime!==last){ last=v.currentTime; lastMove=performance.now(); }
+      else if(v.paused || performance.now()-lastMove>1500){ v.play().catch(()=>{}); lastMove=performance.now(); } },250);
+    loop(); });
+  const got=Math.max(0,Math.min(L,v.currentTime-p.start));
+  rec.stop(); await done; v._ac?.close(); v.remove(); try{ await lock?.release(); }catch(e){}
+  S.ext=mime.includes("mp4")?"mp4":"webm"; S.blob=new Blob(chunks,{type:mime.split(";")[0]});
+  if(S._prevUrl) URL.revokeObjectURL(S._prevUrl); S._prevUrl=URL.createObjectURL(S.blob);
+  c.hidden=true; const pv=$("outPrev"); pv.src=S._prevUrl; pv.hidden=false;
+  $("outText").textContent=`Ready: ${got.toFixed(1)} s, ${S.ext.toUpperCase()}, ${(S.blob.size/1e6).toFixed(1)} MB, ${W}×${H}`
+    + (got<L-1 ? `. Recording stopped at ${got.toFixed(1)} of ${Math.round(L)} s, usually because the screen locked or the app was switched. Export again and keep this screen open.` : "");
+  $("saveBtn").hidden=false; S.lastName=`${S.name} - peak ${S.picks.indexOf(p)+1}.${S.ext}`; exporting=false;
+}
+
+$("saveBtn").addEventListener("click",async()=>{
+  const msg=$("saveMsg"); msg.className="hint";
+  let dl=null; try{ dl=window.claude? await window.claude.use("downloads") : null; }catch(e){}
+  if(dl){ try{ await dl.save({filename:S.lastName,data:S.blob}); msg.textContent="Saved."; }
+    catch(e){ msg.textContent= e.code==="declined"?"Save cancelled.":"Saving isn't available here. Play the clip above and use your browser's video menu to save it."; } return; }
+  const a=document.createElement("a"); a.href=S._prevUrl; a.download=S.lastName; document.body.appendChild(a); a.click(); a.remove();
+  msg.textContent="If no download started, use the video's ⋮ menu to save it.";
+});
+
+/* ---------- input ---------- */
+const drop=$("drop");
+$("file").addEventListener("change",e=>{ const f=e.target.files[0]; if(f) analyze(f); });
+["dragenter","dragover"].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.add("over");}));
+["dragleave","drop"].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.remove("over");}));
+drop.addEventListener("drop",e=>{ const f=e.dataTransfer.files[0]; if(f&&f.type.startsWith("video")) analyze(f); });
+drawTimeline();
+</script>
+
+</body>
+</html>
